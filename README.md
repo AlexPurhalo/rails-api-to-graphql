@@ -98,3 +98,110 @@ Output in neighbor window:
 ```
 "data":{"testField":"Hello World!"}}
 ```
+### Receiving record's data with GraphQL
+Firstly let's add field that helps to find a record
+```
+# app/graphql/types/query_type.rb
+
+QueryType = GraphQL::ObjectType.define do
+  name 'Query'
+  description 'The query root of this schema'
+
+  field :article do
+    type ArticleType
+    argument :id, !types.ID
+    description 'Find a Article by ID'
+    resolve ->(obj, args, ctx) { Article.find_by_id(args['id']) }
+  end
+end
+```
+
+Next we need to provide a type of the record we are looking for
+```
+  $ touch app/graphql/types/article_type.rb 
+```
+```
+# app/graphql/types/article_type.rb
+
+ArticleType = GraphQL::ObjectType.define do
+  name 'Article'
+  field :id, types.Int
+  field :title, types.String
+  field :body, types.String
+end
+```
+Visit graphiql interface and enter following data:
+```
+query {
+  article(id: 1) {
+    id
+    title
+    body
+  }
+}
+```
+Output:
+```
+{
+  "data": {
+    "article": {
+      "id": 1,
+      "title": "Something new",
+      "body": "Let's talk about news"
+    }
+  }
+}
+``` 
+Let's provide comment type as we article has comments
+```
+# app/graphql/types/article_type.rb
+
+ArticleType = GraphQL::ObjectType.define do
+  ...
+  field :comments, types[CommentType]
+end
+```
+```
+$ touch app/graphql/types/comment_type.rb
+```
+```
+# app/graphql/types/comment_type.rb
+
+CommentType = GraphQL::ObjectType.define do
+  name 'Comment'
+  field :id, types.Int
+  field :body, types.String
+end
+```
+Query to graphiql interface
+```
+query {
+  article(id: 1) {
+    id
+    title
+    body
+    comments {
+      id
+      body
+    }
+  }
+}
+```
+Output: 
+```
+{
+  "data": {
+    "article": {
+      "id": 1,
+      "title": "Something new",
+      "body": "Let's talk about news",
+      "comments": [
+        {
+          "id": 1,
+          "body": "Shiiiiit!"
+        }
+      ]
+    }
+  }
+}
+```
