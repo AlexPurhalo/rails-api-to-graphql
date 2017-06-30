@@ -3,7 +3,8 @@
 ```
 $ rails new rails_api_to_graphql
 $ rails g model Article title body
-$ rails g model Comment body article:references
+$ rails g model User username email hashed_password
+$ rails g model Comment body article:references user:references
 ```
 ```
 # app/models/article.rb
@@ -13,10 +14,19 @@ class Article < ApplicationRecord
 end
 ```
 ```
+# app/models/user.rb
+
+class User < ApplicationRecord
+  has_many :comments
+end
+```
+
+```
 $ rake db:migrate
 $ rails c
 > article = Article.create(title: "Something new", body: "Let's talk about news")
-> Comment.create(article_id: article.id, body: "Shiiiiit!")
+> user = User.create(userame: "alex", email: "alex@mail.com", hashed_password: "some_hashed_data")
+> Comment.create(article_id: article.id, user_id: user.id, body: "Shiiiiit!")
 ```
 ### GraphQL configuration, Part 2
 ```
@@ -151,7 +161,8 @@ Output:
     }
   }
 }
-``` 
+```
+### Nested queries implementation  
 Let's provide comment type as we article has comments
 ```
 # app/graphql/types/article_type.rb
@@ -199,6 +210,70 @@ Output:
         {
           "id": 1,
           "body": "Shiiiiit!"
+        }
+      ]
+    }
+  }
+}
+```
+Now we want to show comment's user
+```
+# app/graphql/types/comment_type.rb
+
+CommentType = GraphQL::ObjectType.define do
+  ...
+  field :user, UserType
+end
+```
+```
+$ touch app/graphql/types/user_type.rb
+```
+```
+# app/graphql/types/user_type.rb
+
+UserType = GraphQL::ObjectType.define do
+  name 'User'
+  field :id, types.Int
+  field :name, types.String
+  field :email, types.String
+end
+```
+Go to interface with following input:
+```
+query {
+  article(id: 1) {
+    id
+    title
+    body
+    comments {
+      id
+      body
+      user {
+        id
+        username
+        email
+      }
+    }
+  }
+}
+```
+Output: 
+```
+{
+  "data": {
+    "article": {
+      "id": 1,
+      "title": "Something new",
+      "body": "Let's talk about news",
+      "comments": [
+        {
+          "id": 1,
+          "body": "Shiiiiit!",
+          "user": {
+            "id": 1,
+            "username": "alex",
+            "email": "12323"
+          }
         }
       ]
     }
