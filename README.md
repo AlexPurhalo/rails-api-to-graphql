@@ -1,24 +1,19 @@
-# README
+### Tutorial
+## Application Scaffolding, Part I
+```
+$ rails g model Article title body
+$ rails g model Comment body article:references
+```
+```
+# app/models/article.rb
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
-
-Things you may want to cover:
-
-* Ruby version
-
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+class Article < ApplicationRecord
+  has_many :comments
+end
+```
+```
+$ rake db:migrate
+$ rails c
+> article = Article.create(title: "Something new", body: "Let's talk about news")
+> Comment.create(article_id: article.id, body: "Shiiiiit!")
+```
