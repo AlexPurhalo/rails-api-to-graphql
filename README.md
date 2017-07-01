@@ -280,3 +280,53 @@ Output:
   }
 }
 ```
+
+### Solving N+1 query in GraphQL using graphql-batch
+Let's build file with feature that helps reduce queries count
+```
+$ touch app/graphql/record_loader.rb
+
+```
+```
+# app/graphql/record_loader.rb
+
+require 'graphql/batch'
+class RecordLoader < GraphQL::Batch::Loader
+  def initialize(model)
+    @model = model
+  end
+
+  def perform(ids)
+    @model.where(id: ids).each { |record| fulfill(record.id, record) }
+    ids.each { |id| fulfill(id, nil) unless fulfilled?(id) }
+  end
+end
+```
+
+```
+# app/graphql/schema.rb
+
+Schema = GraphQL::Schema.define do
+  ...
+
+  use GraphQL::Batch
+end
+```
+
+And here how and where you should use it
+```
+# app/graphql/types/comment_type.rb
+
+CommentType = GraphQL::ObjectType.define do
+  ...
+  field :user, -> { UserType } do
+    resolve -> (obj, args, ctx) {
+      RecordLoader.for(User).load(obj.user_id)
+    }
+  end
+end
+```
+Before 
+![before example](/tutorial/before.png "before example")
+After
+![after example](/tutorial/after.png "after example")

@@ -46,3 +46,4 @@ gem 'graphiql-rails', group: :development
 gem 'sass-rails'
 gem 'uglifier'
 gem 'coffee-rails'
+gem 'graphql-batch'
