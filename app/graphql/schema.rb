@@ -1,5 +1,5 @@
 Schema = GraphQL::Schema.define do
-  query(QueryType)
-
+  query QueryType
+  mutation MutationType
   use GraphQL::Batch
 end

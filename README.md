@@ -330,3 +330,272 @@ Before
 ![before example](/tutorial/before.png "before example")
 After
 ![after example](/tutorial/after.png "after example")
+
+### GraphQL Mutations
+```
+$ touch app/graphql/mutations/mutation_type.rb
+```
+
+```
+# app/graphql/mutations/mutation_type.rb
+
+MutationType = GraphQL::ObjectType.define do
+  name "Mutation"
+end
+```
+```
+# app/graphql/graphql_ruby_sample_schema.rb
+
+GraphqlRubySampleSchema = GraphQL::Schema.define do
+  ...
+  mutation MutationType
+  
+  ...
+end
+```
+```
+$ touch app/graphql/mutations/comment_mutations.rb
+```
+```
+# app/graphql/mutations/comment_mutations.rb
+
+module CommentMutations
+  Create = GraphQL::Relay::Mutation.define do
+    name 'AddComment'
+
+    # Define input parameters
+    input_field :articleId, !types.ID
+    input_field :userId, !types.ID
+    input_field :body, !types.String
+
+    # Define return parameters
+    return_field :article, ArticleType
+    return_field :errors, types.String
+
+
+    resolve ->(object, inputs, ctx) {
+      article = Article.find_by_id(inputs[:articleId])
+      return { errors: 'Article not found' } if article.nil?
+
+      comments = article.comments
+      new_comment = comments.build(user_id: inputs[:userId], body: inputs[:body])
+
+      if new_comment.save
+        { article: article }
+      else
+        { errors: new_comment.errors.to_a }
+      end
+    }
+  end
+end
+```
+```
+# app/graphql/mutations/mutation_type.rb
+
+MutationType = GraphQL::ObjectType.define do
+  ...
+  field :addComment, field: CommentMutations::Create.field
+end
+```
+Input: 
+```
+mutation addComment{
+  addComment(input: { body: "New comment", articleId: 1, userId: 1})
+  {
+    article{
+      id
+      comments{
+        body
+        user{
+          username
+        }
+      }
+    }
+  }
+} 
+```
+Output:
+```
+{
+  "data": {
+    "addComment": {
+      "article": {
+        "id": 1,
+        "comments": [
+          {
+            "body": "New comment",
+            "user": {
+              "username": "alex"
+            }
+          },
+          {
+            "body": "New comment",
+            "user": {
+              "username": "alex"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+And mutation to update comment
+``` 
+# app/graphql/mutations/comment_mutations.rb
+
+module CommentMutations
+  ...
+
+  Update = GraphQL::Relay::Mutation.define do
+    name 'UpdateComment'
+
+    # Define input parameters
+    input_field :id, !types.ID
+    input_field :body, types.ID
+    input_field :userId, types.ID
+    input_field :articleId, types.ID
+
+    # Define return parameters
+    return_field :comment, CommentType
+    return_field :errors, types.String
+
+
+    resolve ->(object, inputs, ctx) {
+      comment = Comment.find_by_id(inputs[:id])
+      return { errors: 'Comment not found' } if comment.nil?
+
+
+      if inputs['body']
+        comment.update(body: inputs['body'])
+        { comment: comment }
+      else
+        { errors: 'Body is required' }
+      end
+    }
+  end
+end
+```
+Mutation to delete comment
+```
+# app/graphql/mutations/comment_mutations.rb
+
+module CommentMutations
+  ...
+  
+  Destroy = GraphQL::Relay::Mutation.define do
+    name 'DestroyComment'
+    description 'Delete a comment and return post and deleted comment ID'
+
+    # Define input parameters
+    input_field :id, !types.ID
+
+    # Define return parameters
+    return_field :deletedId, !types.ID
+    return_field :article, ArticleType
+    return_field :errors, types.String
+
+    resolve ->(_obj, inputs, ctx) {
+      comment = Comment.find_by_id(inputs[:id])
+      return { errors: 'Comment not found' } if comment.nil?
+
+      article = comment.article
+      comment.destroy
+
+      { article: article.reload, deletedId: inputs[:id] }
+    }
+  end
+end 
+```
+Input
+```
+# query
+
+mutation destroyComment($comment: DestroyCommentInput!){
+  destroyComment(input: $comment){
+    errors
+    article{
+      id
+      comments{
+        id
+        body
+      }
+    }
+  }
+}
+
+# variables
+
+{
+  "comment": {
+    "id": 3
+  }
+}
+```
+Output: 
+```
+{
+  "data": {
+    "destroyComment": {
+      "errors": null,
+      "article": {
+        "id": 1,
+        "comments": [
+          {
+            "id": 4,
+            "body": "New comment"
+          },
+          {
+            "id": 5,
+            "body": "Ololo"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+Enter again and yoy should get errors
+```
+{
+  "data": {
+    "destroyComment": {
+      "errors": "Comment not found",
+      "article": null
+    }
+  }
+}
+```
+Enter following to update comment
+```
+# query
+
+mutation updateComment($commentId: ID!) {
+  updateComment(input: { id: $commentId, body:"Hi man!!"}) {
+	errors
+    comment {
+      id
+      body
+    }
+  }
+}
+
+# variables
+{
+  "commentId": 4
+}
+```
+Output:
+```
+{
+  "data": {
+    "updateComment": {
+      "errors": null,
+      "comment": {
+        "id": 4,
+        "body": "Hi man!!"
+      }
+    }
+  }
+} 
+```
